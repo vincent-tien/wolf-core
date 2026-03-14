@@ -1,0 +1,75 @@
+app:
+  name: wolf-prime
+  env: development
+
+http:
+  port: 8080
+  read_timeout: 10s
+  read_header_timeout: 5s
+  write_timeout: 15s
+  idle_timeout: 120s
+  max_header_bytes: 1048576
+  trusted_proxies: []
+  cors:
+    allowed_origins:
+      - "http://localhost:3000"
+
+grpc:
+  port: 9090
+
+db:
+  write:
+    dsn: postgres://wolf:wolf@localhost:5432/wolfprime?sslmode=disable
+    max_open_conns: 15
+    max_idle_conns: 10
+    conn_max_lifetime: 5m
+    conn_max_idle_time: 1m
+    statement_timeout: 30000
+    idle_in_transaction_session_timeout: 60000
+    simple_protocol: true
+  read:
+    dsn: postgres://wolf:wolf@localhost:5432/wolfprime?sslmode=disable
+    max_open_conns: 30
+    max_idle_conns: 15
+    conn_max_lifetime: 5m
+    conn_max_idle_time: 1m
+    statement_timeout: 30000
+    idle_in_transaction_session_timeout: 60000
+    simple_protocol: true
+
+redis:
+  addr: localhost:6379
+
+cache:
+  driver: redis
+
+broker:
+  driver: inprocess
+
+log:
+  level: debug
+  format: json
+
+otel:
+  enabled: true
+  exporter: otlp
+  endpoint: localhost:4317
+  sample_rate: 1.0
+  insecure: true
+
+metrics:
+  enabled: true
+  port: 9091
+
+jwt:
+  signing_method: HS256
+  secret_key: wolf-dev-secret-key-change-in-prod!
+  access_token_ttl: 15m
+  refresh_token_ttl: 168h
+  issuer: wolf-prime
+
+bcrypt:
+  cost: 12
+
+session:
+  max_active: 5
