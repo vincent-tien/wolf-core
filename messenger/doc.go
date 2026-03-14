@@ -14,5 +14,5 @@
 //   - BusSet: manages separate command/query bus instances
 //
 // Design inspired by Symfony Messenger, adapted for Go's type system
-// and performance characteristics. See docs/MESSENGER_GUIDE.md for usage.
+// and performance characteristics.
 package messenger
