@@ -34,8 +34,14 @@ type Deduplicator interface {
 // The event_type header is read from the message to populate the inbox record.
 // When absent, the message subject is used as a fallback.
 type InboxMiddleware struct {
-	store  Deduplicator
-	logger *zap.Logger
+	store       Deduplicator
+	logger      *zap.Logger
+	dedupTotal  CounterIncrementer // optional: incremented on each deduplicated message
+}
+
+// CounterIncrementer is satisfied by prometheus.Counter and test stubs.
+type CounterIncrementer interface {
+	Inc()
 }
 
 // NewInboxMiddleware constructs an InboxMiddleware backed by store.
@@ -48,6 +54,13 @@ func NewInboxMiddleware(store *InboxStore, logger *zap.Logger) *InboxMiddleware 
 // that supply a fake store without a live database connection.
 func NewInboxMiddlewareWithDeduplicator(store Deduplicator, logger *zap.Logger) *InboxMiddleware {
 	return &InboxMiddleware{store: store, logger: logger}
+}
+
+// WithDedupCounter attaches a Prometheus counter that increments on each
+// deduplicated (skipped) message. Recommended metric name: wolf_inbox_deduplicated_total.
+func (m *InboxMiddleware) WithDedupCounter(c CounterIncrementer) *InboxMiddleware {
+	m.dedupTotal = c
+	return m
 }
 
 // Wrap returns a new MessageHandler that provides at-least-once processing with
@@ -76,6 +89,9 @@ func (m *InboxMiddleware) Wrap(next messaging.MessageHandler) messaging.MessageH
 				zap.String("message_id", msg.ID()),
 				zap.String("event_type", eventType),
 			)
+			if m.dedupTotal != nil {
+				m.dedupTotal.Inc()
+			}
 			return nil
 		}
 

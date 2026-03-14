@@ -1,6 +1,6 @@
 // Package cqrs provides middleware factories for CommandHandler and QueryHandler.
 // Middlewares implement cross-cutting concerns such as logging, validation,
-// metrics, and caching without polluting use-case business logic.
+// metrics, tracing, and caching without polluting use-case business logic.
 package cqrs
 
 import (
@@ -8,8 +8,72 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
+
+const tracerName = "wolf-core/cqrs"
+
+// ---------------------------------------------------------------------------
+// Tracing middlewares
+// ---------------------------------------------------------------------------
+
+// WithCommandTracing returns a CommandMiddleware that creates a child span
+// for the command execution. Place outermost in the chain so the span
+// captures the full middleware pipeline (validation, logging, metrics).
+// Tracer, span name, and attributes are pre-computed at construction time
+// to avoid per-call mutex contention on the OTel TracerProvider.
+func WithCommandTracing[C Command, R any](commandName string) CommandMiddleware[C, R] {
+	tracer := otel.Tracer(tracerName)
+	spanName := "command/" + commandName
+	spanOpts := []trace.SpanStartOption{
+		trace.WithAttributes(attribute.String("cqrs.type", "command"), attribute.String("cqrs.name", commandName)),
+		trace.WithSpanKind(trace.SpanKindInternal),
+	}
+
+	return func(next CommandHandler[C, R]) CommandHandler[C, R] {
+		return CommandHandlerFunc[C, R](func(ctx context.Context, cmd C) (R, error) {
+			ctx, span := tracer.Start(ctx, spanName, spanOpts...)
+			defer span.End()
+
+			result, err := next.Handle(ctx, cmd)
+			if err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			}
+			return result, err
+		})
+	}
+}
+
+// WithQueryTracing returns a QueryMiddleware that creates a child span
+// for the query execution. Tracer and attributes are pre-computed at
+// construction time to avoid per-call overhead.
+func WithQueryTracing[Q Query, R any](queryName string) QueryMiddleware[Q, R] {
+	tracer := otel.Tracer(tracerName)
+	spanName := "query/" + queryName
+	spanOpts := []trace.SpanStartOption{
+		trace.WithAttributes(attribute.String("cqrs.type", "query"), attribute.String("cqrs.name", queryName)),
+		trace.WithSpanKind(trace.SpanKindInternal),
+	}
+
+	return func(next QueryHandler[Q, R]) QueryHandler[Q, R] {
+		return QueryHandlerFunc[Q, R](func(ctx context.Context, query Q) (R, error) {
+			ctx, span := tracer.Start(ctx, spanName, spanOpts...)
+			defer span.End()
+
+			result, err := next.Handle(ctx, query)
+			if err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			}
+			return result, err
+		})
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Command middlewares

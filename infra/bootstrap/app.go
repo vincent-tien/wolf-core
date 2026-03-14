@@ -164,10 +164,17 @@ func New(cfgPath string) (_ *App, retErr error) {
 	}
 	closers = append(closers, func() { _ = cacheClient.Close() })
 
-	// 8b. Token blacklist
+	// 8b. Token blacklist (with circuit breaker for Redis resilience)
 	var blacklist sharedauth.TokenBlacklist
 	if cfg.Cache.Driver == "redis" {
-		blacklist = platformauth.NewRedisBlacklist(cacheClient)
+		redisBL := platformauth.NewRedisBlacklist(cacheClient)
+		blacklistCB := resilience.NewCircuitBreaker(
+			"blacklist",
+			uint32(cfg.CB.MaxRequests),
+			cfg.CB.Interval, cfg.CB.Timeout,
+			logger,
+		)
+		blacklist = platformauth.NewResilientBlacklist(redisBL, blacklistCB, logger)
 	} else {
 		logger.Warn("redis disabled — token revocation will not work until natural expiry")
 		blacklist = platformauth.NewNoopBlacklist()

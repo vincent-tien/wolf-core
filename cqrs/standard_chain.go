@@ -4,11 +4,12 @@
 // middleware ordering across the entire codebase.
 //
 // Standard execution order (outermost → innermost):
-//   validation → logging → metrics → handler
+//   tracing → validation → logging → metrics → handler
 // WithInvalidation variant:
-//   cache invalidation → validation → logging → metrics → handler
+//   tracing → cache invalidation → validation → logging → metrics → handler
 // ChainCommand/ChainQuery iterate last-to-first, so the FIRST argument
-// becomes the outermost wrapper. Validation short-circuits before logging
+// becomes the outermost wrapper. Tracing wraps everything so the span
+// captures the full pipeline. Validation short-circuits before logging
 // if input is invalid. Metrics wraps the handler (captures handler latency).
 // Logging captures the handler result including duration.
 package cqrs
@@ -41,9 +42,10 @@ type ChainDeps struct {
 }
 
 // StandardCommandChain wraps a CommandHandler with the standard middleware
-// chain: validation → logging → metrics (outermost to innermost).
+// chain: tracing → validation → logging → metrics (outermost to innermost).
 func StandardCommandChain[C Command, R any](handler CommandHandler[C, R], name string, deps ChainDeps) CommandHandler[C, R] {
 	return ChainCommand(handler,
+		WithCommandTracing[C, R](name),
 		WithCommandValidation[C, R](func(c C) error { return deps.Validate(c) }),
 		WithCommandLogging[C, R](deps.Logger, name, deps.CtxFields),
 		WithCommandMetrics[C, R](deps.CommandDuration, deps.CommandTotal, name),
@@ -51,9 +53,9 @@ func StandardCommandChain[C Command, R any](handler CommandHandler[C, R], name s
 }
 
 // StandardCommandChainWithInvalidation wraps a CommandHandler with the standard
-// middleware chain plus cache invalidation (outermost):
+// middleware chain plus cache invalidation:
 //
-//	cache invalidation → validation → logging → metrics → handler
+//	tracing → cache invalidation → validation → logging → metrics → handler
 //
 // Cache eviction fires only after a successful handler execution (validation
 // failures short-circuit before the Delete call).
@@ -65,6 +67,7 @@ func StandardCommandChainWithInvalidation[C Command, R any](
 	deps ChainDeps,
 ) CommandHandler[C, R] {
 	return ChainCommand(handler,
+		WithCommandTracing[C, R](name),
 		WithCommandCacheInvalidation[C, R](cache, keyFn, deps.Logger),
 		WithCommandValidation[C, R](func(c C) error { return deps.Validate(c) }),
 		WithCommandLogging[C, R](deps.Logger, name, deps.CtxFields),
@@ -73,9 +76,10 @@ func StandardCommandChainWithInvalidation[C Command, R any](
 }
 
 // StandardQueryChain wraps a QueryHandler with the standard middleware
-// chain: validation → logging → metrics (outermost to innermost).
+// chain: tracing → validation → logging → metrics (outermost to innermost).
 func StandardQueryChain[Q Query, R any](handler QueryHandler[Q, R], name string, deps ChainDeps) QueryHandler[Q, R] {
 	return ChainQuery(handler,
+		WithQueryTracing[Q, R](name),
 		WithQueryValidation[Q, R](func(q Q) error { return deps.Validate(q) }),
 		WithQueryLogging[Q, R](deps.Logger, name, deps.CtxFields),
 		WithQueryMetrics[Q, R](deps.QueryDuration, deps.QueryTotal, name),
@@ -83,12 +87,13 @@ func StandardQueryChain[Q Query, R any](handler QueryHandler[Q, R], name string,
 }
 
 // StandardQueryChainWithCaching wraps a QueryHandler with the standard
-// middleware chain plus cache-aside (outermost):
+// middleware chain plus cache-aside:
 //
-//	caching → validation → logging → metrics → handler
+//	tracing → caching → validation → logging → metrics → handler
 //
-// On a cache hit the entire chain is bypassed. On a miss the handler result
-// is stored before being returned. Cache errors are logged but never propagate.
+// Tracing is outermost so the span captures cache hits as fast completions
+// (giving visibility into cache hit ratios from traces). On a cache hit the
+// downstream chain is bypassed. Cache errors are logged but never propagate.
 //
 // When deps.QueryCacheHits and deps.QueryCacheMisses are non-nil, the cache is
 // wrapped with a metrics decorator that increments per-query hit/miss counters.
@@ -110,6 +115,7 @@ func StandardQueryChainWithCaching[Q Query, R any](
 	}
 
 	return ChainQuery(handler,
+		WithQueryTracing[Q, R](name),
 		WithQueryCaching[Q, R](c, keyFn, ttl, deps.Logger),
 		WithQueryValidation[Q, R](func(q Q) error { return deps.Validate(q) }),
 		WithQueryLogging[Q, R](deps.Logger, name, deps.CtxFields),
