@@ -111,6 +111,6 @@ func (r *ReadinessChecker) Handler() gin.HandlerFunc {
 			statusCode = http.StatusServiceUnavailable
 		}
 
-		c.JSON(statusCode, resp)
+		JSON(c, statusCode, resp)
 	}
 }

@@ -2,12 +2,12 @@
 package http
 
 import (
-	"net/http"
 	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/vincent-tien/wolf-core/infra/config"
+	wolfhttp "github.com/vincent-tien/wolf-core/infra/http"
 )
 
 // LoadShedder tracks in-flight requests and rejects new ones when the
@@ -42,10 +42,7 @@ func (ls *LoadShedder) Middleware() gin.HandlerFunc {
 		defer ls.inflight.Add(-1)
 
 		if current > ls.limit {
-			c.Header("Retry-After", "1")
-			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
-				"error": "server at capacity",
-			})
+			wolfhttp.AbortServiceUnavailable(c, "server at capacity")
 			return
 		}
 

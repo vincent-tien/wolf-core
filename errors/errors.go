@@ -30,6 +30,8 @@ const (
 	ErrRateLimited ErrorCode = "RATE_LIMITED"
 	// ErrUnavailable indicates that a downstream dependency is temporarily unavailable.
 	ErrUnavailable ErrorCode = "UNAVAILABLE"
+	// ErrTimeout indicates that an operation exceeded its deadline.
+	ErrTimeout ErrorCode = "TIMEOUT"
 )
 
 // AppError is the canonical application error type. It carries a semantic code,

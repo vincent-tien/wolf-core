@@ -4,24 +4,12 @@ package http
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	apperrors "github.com/vincent-tien/wolf-core/errors"
+	wolfhttp "github.com/vincent-tien/wolf-core/infra/http"
 )
-
-// errorResponse is the canonical JSON body returned for all error responses.
-// Fields follow RFC 7807 Problem Details conventions while retaining backward
-// compatibility via Code/Message.
-type errorResponse struct {
-	Type      string `json:"type"`               // URI reference identifying the error category
-	Status    int    `json:"status"`             // HTTP status code
-	Code      string `json:"code"`               // Machine-readable error code
-	Message   string `json:"message"`            // Human-readable error detail
-	Instance  string `json:"instance,omitempty"` // Request path
-	RequestID string `json:"request_id,omitempty"`
-}
 
 // ErrorHandler returns a Gin middleware that checks gin.Context.Errors after
 // the handler chain completes. If any errors were attached to the context via
@@ -37,7 +25,6 @@ func ErrorHandler() gin.HandlerFunc {
 			return
 		}
 
-		// Use the last error attached to the context.
 		err := c.Errors.Last().Err
 		HandleError(c, err)
 	}
@@ -47,43 +34,23 @@ func ErrorHandler() gin.HandlerFunc {
 // to c. It is the canonical way to terminate a handler with an error.
 //
 // Mapping rules:
-//   - customerror.ErrorTypeNotFound      → 404
-//   - customerror.ErrorTypeConflict      → 409
-//   - customerror.ErrorTypeValidation    → 400
-//   - customerror.ErrorTypeUnauthorized  → 401
-//   - customerror.ErrorTypeForbidden     → 403
-//   - customerror.ErrorTypeInternal      → 500
-//   - unknown / nil                      → 500
-//
-// Additional error codes not present in customerror.ErrorType are detected by
-// code string matching for forward-compatibility:
-//   - code "RATE_LIMITED"  → 429
-//   - code "TIMEOUT"       → 504
-//   - code "UNAVAILABLE"   → 503
+//   - apperrors.ErrNotFound      → 404
+//   - apperrors.ErrConflict      → 409
+//   - apperrors.ErrValidation    → 400
+//   - apperrors.ErrUnauthorized  → 401
+//   - apperrors.ErrForbidden     → 403
+//   - apperrors.ErrInternal      → 500
+//   - apperrors.ErrRateLimited   → 429
+//   - apperrors.ErrUnavailable   → 503
+//   - "TIMEOUT"                  → 504
+//   - unknown / nil              → 500
 func HandleError(c *gin.Context, err error) {
 	if err == nil {
 		return
 	}
 
 	status, code, message := mapError(err)
-
-	rid, _ := c.Get(requestIDKey)
-	ridStr, _ := rid.(string)
-
-	c.AbortWithStatusJSON(status, errorResponse{
-		Type:      errorTypeURI(code),
-		Status:    status,
-		Code:      code,
-		Message:   message,
-		Instance:  c.Request.URL.Path,
-		RequestID: ridStr,
-	})
-}
-
-// errorTypeURI converts a code string to a relative URI reference for the
-// RFC 7807 "type" field (e.g. "NOT_FOUND" → "/errors/not-found").
-func errorTypeURI(code string) string {
-	return "/errors/" + strings.ToLower(strings.ReplaceAll(code, "_", "-"))
+	wolfhttp.AbortWithError(c, status, code, message)
 }
 
 // mapError resolves an error into an HTTP status code, machine-readable code
@@ -108,7 +75,7 @@ func mapError(err error) (status int, code, message string) {
 			return http.StatusTooManyRequests, string(appErr.Code), appErr.Message
 		case apperrors.ErrUnavailable:
 			return http.StatusServiceUnavailable, string(appErr.Code), appErr.Message
-		case "TIMEOUT":
+		case apperrors.ErrTimeout:
 			return http.StatusGatewayTimeout, string(appErr.Code), appErr.Message
 		default:
 			return http.StatusInternalServerError, string(appErr.Code), appErr.Message

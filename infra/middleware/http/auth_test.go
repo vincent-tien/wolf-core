@@ -181,12 +181,13 @@ func TestAuthMiddleware_InvalidSignature(t *testing.T) {
 	assertErrorBody(t, w)
 }
 
-// assertErrorBody verifies the response carries a JSON object with an "error"
-// field so callers get a machine-readable message.
+// assertErrorBody verifies the response carries a structured JSON error
+// response with the required RFC 7807-style fields.
 func assertErrorBody(t *testing.T, w *httptest.ResponseRecorder) {
 	t.Helper()
-	var body map[string]string
+	var body map[string]any
 	err := json.NewDecoder(w.Body).Decode(&body)
 	require.NoError(t, err, "response body must be valid JSON")
-	assert.NotEmpty(t, body["error"], "response must contain an 'error' field")
+	assert.NotEmpty(t, body["code"], "response must contain a 'code' field")
+	assert.NotEmpty(t, body["message"], "response must contain a 'message' field")
 }

@@ -3,7 +3,6 @@ package http
 
 import (
 	"errors"
-	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +10,7 @@ import (
 
 	sharedauth "github.com/vincent-tien/wolf-core/auth"
 	sharederrors "github.com/vincent-tien/wolf-core/errors"
+	wolfhttp "github.com/vincent-tien/wolf-core/infra/http"
 )
 
 // AuthMiddleware validates JWT tokens extracted from the Authorization header.
@@ -85,17 +85,10 @@ func parseBearerToken(header string) (string, bool) {
 //   - sharederrors.ErrUnauthorized (and all auth sub-errors) → 401
 //   - unknown → 401
 func writeAuthError(c *gin.Context, err error) {
-	statusCode := http.StatusUnauthorized
-
 	var appErr *sharederrors.AppError
-	if errors.As(err, &appErr) {
-		switch appErr.Code {
-		case sharederrors.ErrForbidden:
-			statusCode = http.StatusForbidden
-		default:
-			statusCode = http.StatusUnauthorized
-		}
+	if errors.As(err, &appErr) && appErr.Code == sharederrors.ErrForbidden {
+		wolfhttp.AbortForbidden(c, err.Error())
+		return
 	}
-
-	c.AbortWithStatusJSON(statusCode, gin.H{"error": err.Error()})
+	wolfhttp.AbortUnauthorized(c, err.Error())
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/vincent-tien/wolf-core/infra/db"
 	"github.com/vincent-tien/wolf-core/infra/di"
+	wolfhttp "github.com/vincent-tien/wolf-core/infra/http"
 )
 
 // connKey is the DI container key under which the active *sql.Tx is registered
@@ -42,9 +43,7 @@ func TransactionMiddleware(ctr di.Container, writeDB *sql.DB, logger *zap.Logger
 		tx, err := writeDB.BeginTx(ctx, nil)
 		if err != nil {
 			logger.Error("transaction middleware: begin tx failed", zap.Error(err))
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"error": "failed to begin database transaction",
-			})
+			wolfhttp.AbortInternalError(c, "failed to begin database transaction")
 
 			return
 		}
@@ -80,9 +79,7 @@ func TransactionMiddleware(ctr di.Container, writeDB *sql.DB, logger *zap.Logger
 
 		if commitErr := tx.Commit(); commitErr != nil {
 			logger.Error("transaction middleware: commit failed", zap.Error(commitErr))
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"error": "failed to commit database transaction",
-			})
+			wolfhttp.AbortInternalError(c, "failed to commit database transaction")
 		}
 	}
 }

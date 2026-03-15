@@ -2,13 +2,12 @@
 package http
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
 	sharedauth "github.com/vincent-tien/wolf-core/auth"
 	sharederrors "github.com/vincent-tien/wolf-core/errors"
+	wolfhttp "github.com/vincent-tien/wolf-core/infra/http"
 )
 
 // RBACMiddleware provides role-based and permission-based access control
@@ -30,9 +29,7 @@ func (m *RBACMiddleware) RequireRoles(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := sharedauth.ClaimsFromContext(c.Request.Context())
 		if claims == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": sharederrors.NewUnauthorized("authentication required").Error(),
-			})
+			wolfhttp.AbortUnauthorized(c, sharederrors.NewUnauthorized("authentication required").Error())
 			return
 		}
 
@@ -42,9 +39,7 @@ func (m *RBACMiddleware) RequireRoles(roles ...string) gin.HandlerFunc {
 				zap.Strings("actual", claims.Roles),
 				zap.String("user_id", claims.UserID),
 			)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": sharederrors.NewInsufficientRole(roles).Error(),
-			})
+			wolfhttp.AbortForbidden(c, sharederrors.NewInsufficientRole(roles).Error())
 			return
 		}
 
@@ -60,9 +55,7 @@ func (m *RBACMiddleware) RequirePermissions(perms ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := sharedauth.ClaimsFromContext(c.Request.Context())
 		if claims == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": sharederrors.NewUnauthorized("authentication required").Error(),
-			})
+			wolfhttp.AbortUnauthorized(c, sharederrors.NewUnauthorized("authentication required").Error())
 			return
 		}
 
@@ -72,9 +65,7 @@ func (m *RBACMiddleware) RequirePermissions(perms ...string) gin.HandlerFunc {
 					zap.String("missing", perm),
 					zap.String("user_id", claims.UserID),
 				)
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-					"error": sharederrors.NewInsufficientPermission(perm).Error(),
-				})
+				wolfhttp.AbortForbidden(c, sharederrors.NewInsufficientPermission(perm).Error())
 				return
 			}
 		}
@@ -91,9 +82,7 @@ func (m *RBACMiddleware) RequireSelf(paramName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := sharedauth.ClaimsFromContext(c.Request.Context())
 		if claims == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": sharederrors.NewUnauthorized("authentication required").Error(),
-			})
+			wolfhttp.AbortUnauthorized(c, sharederrors.NewUnauthorized("authentication required").Error())
 			return
 		}
 
@@ -108,9 +97,7 @@ func (m *RBACMiddleware) RequireSelf(paramName string) gin.HandlerFunc {
 			zap.String("resource_id", resourceID),
 			zap.String("user_id", claims.UserID),
 		)
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			"error": sharederrors.NewForbidden("access denied: you can only access your own resources").Error(),
-		})
+		wolfhttp.AbortForbidden(c, sharederrors.NewForbidden("access denied: you can only access your own resources").Error())
 	}
 }
 
@@ -122,9 +109,7 @@ func (m *RBACMiddleware) RequireRolesOrSelf(paramName string, roles ...string) g
 	return func(c *gin.Context) {
 		claims := sharedauth.ClaimsFromContext(c.Request.Context())
 		if claims == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": sharederrors.NewUnauthorized("authentication required").Error(),
-			})
+			wolfhttp.AbortUnauthorized(c, sharederrors.NewUnauthorized("authentication required").Error())
 			return
 		}
 
@@ -140,8 +125,6 @@ func (m *RBACMiddleware) RequireRolesOrSelf(paramName string, roles ...string) g
 			zap.String("resource_id", resourceID),
 			zap.String("user_id", claims.UserID),
 		)
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			"error": sharederrors.NewInsufficientRole(roles).Error(),
-		})
+		wolfhttp.AbortForbidden(c, sharederrors.NewInsufficientRole(roles).Error())
 	}
 }

@@ -4,9 +4,10 @@ package http
 import (
 	"crypto/sha256"
 	"crypto/subtle"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	wolfhttp "github.com/vincent-tien/wolf-core/infra/http"
 )
 
 const apiKeyServiceContextKey = "api_key_service"
@@ -35,9 +36,7 @@ func (m *APIKeyMiddleware) Handler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rawKey := c.GetHeader("X-API-Key")
 		if rawKey == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "X-API-Key header is required",
-			})
+			wolfhttp.AbortUnauthorized(c, "X-API-Key header is required")
 			return
 		}
 
@@ -51,8 +50,6 @@ func (m *APIKeyMiddleware) Handler() gin.HandlerFunc {
 			}
 		}
 
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-			"error": "invalid API key",
-		})
+		wolfhttp.AbortUnauthorized(c, "invalid API key")
 	}
 }

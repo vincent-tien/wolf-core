@@ -3,7 +3,6 @@ package http
 
 import (
 	"encoding/json"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -28,12 +27,12 @@ func AsyncCommand[C any](publisher messaging.Publisher, subject string) gin.Hand
 	return func(c *gin.Context) {
 		var cmd C
 		if err := c.ShouldBindJSON(&cmd); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			AbortBadRequest(c, err.Error())
 			return
 		}
 
 		if err := validator.Validate(cmd); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			AbortBadRequest(c, err.Error())
 			return
 		}
 
@@ -41,7 +40,7 @@ func AsyncCommand[C any](publisher messaging.Publisher, subject string) gin.Hand
 
 		data, err := json.Marshal(cmd)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal command"})
+			AbortInternalError(c, "failed to marshal command")
 			return
 		}
 
@@ -57,11 +56,11 @@ func AsyncCommand[C any](publisher messaging.Publisher, subject string) gin.Hand
 		}
 
 		if err := publisher.Publish(c.Request.Context(), subject, msg); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to submit command"})
+			AbortInternalError(c, "failed to submit command")
 			return
 		}
 
-		c.JSON(http.StatusAccepted, AsyncResponse{
+		Accepted(c, AsyncResponse{
 			RequestID: requestID,
 			Status:    "accepted",
 			StatusURL: "/api/v1/commands/" + requestID + "/status",

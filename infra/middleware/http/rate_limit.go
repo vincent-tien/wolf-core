@@ -2,12 +2,13 @@
 package http
 
 import (
-	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
+
+	wolfhttp "github.com/vincent-tien/wolf-core/infra/http"
 )
 
 // PerIPRateLimiter enforces per-client-IP rate limiting using a map of
@@ -103,10 +104,7 @@ func (rl *PerIPRateLimiter) Middleware() gin.HandlerFunc {
 		limiter := rl.getLimiter(clientIP)
 
 		if !limiter.Allow() {
-			c.Header("Retry-After", "1")
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error": "rate limit exceeded",
-			})
+			wolfhttp.AbortTooManyRequests(c, "rate limit exceeded")
 			return
 		}
 

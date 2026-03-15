@@ -60,13 +60,14 @@ func New(cfg config.HTTPConfig, appCfg config.AppConfig, logger *zap.Logger, m *
 		_ = engine.SetTrustedProxies(nil)
 	}
 
-	engine.Use(gin.Recovery())
+	// NOTE: Do NOT add gin.Recovery() here. The custom Recovery(logger) in
+	// BuildChain handles panics with structured JSON responses and logging.
 
 	readiness := NewReadinessChecker()
 
 	// System endpoints — always available.
 	engine.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		JSON(c, http.StatusOK, gin.H{"status": "ok"})
 	})
 	engine.GET("/ready", readiness.Handler())
 

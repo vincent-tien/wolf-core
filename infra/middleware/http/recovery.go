@@ -2,11 +2,12 @@
 package http
 
 import (
-	"net/http"
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+
+	wolfhttp "github.com/vincent-tien/wolf-core/infra/http"
 )
 
 // Recovery returns a Gin middleware that catches any panic propagating through
@@ -24,10 +25,7 @@ func Recovery(logger *zap.Logger) gin.HandlerFunc {
 					zap.String("path", c.Request.URL.Path),
 					zap.ByteString("stack", stack),
 				)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-					"code":    "INTERNAL_ERROR",
-					"message": "an unexpected error occurred",
-				})
+				wolfhttp.AbortInternalError(c, "an unexpected error occurred")
 			}
 		}()
 		c.Next()
