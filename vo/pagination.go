@@ -2,7 +2,10 @@
 package vo
 
 import (
+	"encoding/base64"
 	"fmt"
+	"strings"
+	"time"
 )
 
 const (
@@ -55,6 +58,32 @@ type PageResponse[T any] struct {
 	// TotalCount is the total number of matching records across all pages.
 	// Zero values are omitted from JSON responses for backward compatibility.
 	TotalCount int64 `json:"total_count,omitempty"`
+}
+
+// EncodeCursor builds an opaque, URL-safe cursor token from a timestamp and ID.
+// The token encodes created_at in RFC3339Nano precision to preserve PostgreSQL
+// microsecond timestamps, avoiding cursor collisions within the same second.
+func EncodeCursor(createdAt time.Time, id string) string {
+	raw := createdAt.UTC().Format(time.RFC3339Nano) + "|" + id
+	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+}
+
+// DecodeCursor extracts the timestamp and ID from an opaque cursor token
+// produced by EncodeCursor. Returns an error if the token is malformed.
+func DecodeCursor(cursor string) (createdAt time.Time, id string, err error) {
+	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return time.Time{}, "", fmt.Errorf("cursor: decode base64: %w", err)
+	}
+	parts := strings.SplitN(string(raw), "|", 2)
+	if len(parts) != 2 {
+		return time.Time{}, "", fmt.Errorf("cursor: invalid format")
+	}
+	t, err := time.Parse(time.RFC3339Nano, parts[0])
+	if err != nil {
+		return time.Time{}, "", fmt.Errorf("cursor: parse time: %w", err)
+	}
+	return t, parts[1], nil
 }
 
 // MapPage transforms the items in a PageResponse using the provided mapping function.

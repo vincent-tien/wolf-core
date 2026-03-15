@@ -3,6 +3,7 @@ package vo
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -92,4 +93,55 @@ func TestPageResponse_EmptyPage(t *testing.T) {
 	}
 	assert.Empty(t, page.Items)
 	assert.False(t, page.HasMore)
+}
+
+func TestEncodeCursor_RoundTrip(t *testing.T) {
+	ts := time.Date(2026, 3, 15, 10, 30, 45, 123456000, time.UTC)
+	id := "550e8400-e29b-41d4-a716-446655440000"
+
+	encoded := EncodeCursor(ts, id)
+	assert.NotEmpty(t, encoded)
+
+	gotTime, gotID, err := DecodeCursor(encoded)
+	require.NoError(t, err)
+	assert.True(t, ts.Equal(gotTime), "timestamps should match")
+	assert.Equal(t, id, gotID)
+}
+
+func TestEncodeCursor_PreservesSubSecondPrecision(t *testing.T) {
+	ts := time.Date(2026, 1, 1, 0, 0, 0, 999999000, time.UTC)
+
+	encoded := EncodeCursor(ts, "test-id")
+	gotTime, _, err := DecodeCursor(encoded)
+	require.NoError(t, err)
+	assert.Equal(t, ts.UnixNano(), gotTime.UnixNano(), "sub-second precision must be preserved")
+}
+
+func TestEncodeCursor_NormalizesToUTC(t *testing.T) {
+	loc := time.FixedZone("UTC+7", 7*3600)
+	ts := time.Date(2026, 3, 15, 17, 0, 0, 0, loc) // 17:00 UTC+7 = 10:00 UTC
+
+	encoded := EncodeCursor(ts, "id")
+	gotTime, _, err := DecodeCursor(encoded)
+	require.NoError(t, err)
+	assert.Equal(t, time.UTC, gotTime.Location())
+	assert.Equal(t, 10, gotTime.Hour())
+}
+
+func TestDecodeCursor_InvalidBase64(t *testing.T) {
+	_, _, err := DecodeCursor("!!!not-base64!!!")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "decode base64")
+}
+
+func TestDecodeCursor_MissingSeparator(t *testing.T) {
+	_, _, err := DecodeCursor("bm8tcGlwZS1oZXJl") // base64("no-pipe-here")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid format")
+}
+
+func TestDecodeCursor_MalformedTimestamp(t *testing.T) {
+	_, _, err := DecodeCursor("bm90LWEtdGltZXxzb21lLWlk") // base64("not-a-time|some-id")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "parse time")
 }
