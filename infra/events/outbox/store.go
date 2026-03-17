@@ -109,14 +109,16 @@ func (s *Store) Insert(ctx context.Context, evt event.Event, meta event.Metadata
 			($1, $2, $3, $4, $5, $6, $7, $8, 0, '')`
 
 	db := s.executor(ctx)
+	// Cast []byte to string for JSONB columns — pgx/stdlib sends []byte as
+	// bytea which Postgres rejects for JSONB. string is sent as text which works.
 	_, err = db.ExecContext(ctx, query,
 		evt.EventID(),
 		evt.AggregateType(),
 		evt.AggregateID(),
 		evt.EventType(),
-		payload,
+		string(payload),
 		meta.TraceID,
-		metadataJSON,
+		jsonBytesToString(metadataJSON),
 		evt.OccurredAt(),
 	)
 	if err != nil {
@@ -147,6 +149,16 @@ func marshalMetadata(meta event.Metadata) ([]byte, error) {
 		return nil, fmt.Errorf("marshal metadata: %w", err)
 	}
 	return b, nil
+}
+
+// jsonBytesToString converts []byte to string for JSONB columns.
+// Returns "{}" when input is nil (safe for NOT NULL JSONB columns).
+// pgx/stdlib sends []byte as bytea — string is sent as text which Postgres accepts for JSONB.
+func jsonBytesToString(b []byte) string {
+	if b == nil {
+		return "{}"
+	}
+	return string(b)
 }
 
 func (s *Store) executor(ctx context.Context) execer {
@@ -388,9 +400,9 @@ func (s *Store) InsertEntry(ctx context.Context, entry OutboxEntry) error {
 		entry.AggregateType,
 		entry.AggregateID,
 		entry.EventType,
-		entry.Payload,
+		string(entry.Payload),
 		entry.TraceID,
-		metadataJSON,
+		jsonBytesToString(metadataJSON),
 	); execErr != nil {
 		return fmt.Errorf("outbox: insert entry %q: %w", entry.ID, execErr)
 	}
