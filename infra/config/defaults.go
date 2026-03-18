@@ -152,5 +152,4 @@ func setAuthDefaults(v *viper.Viper) {
 	v.SetDefault("jwt.issuer", "wolf-prime")
 	v.SetDefault("jwt.audience", []string{"wolf-prime-api"})
 	v.SetDefault("bcrypt.cost", 12)
-	v.SetDefault("session.max_active", 5)
 }

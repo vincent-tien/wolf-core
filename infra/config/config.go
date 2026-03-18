@@ -22,7 +22,6 @@ import (
 //	log.level              → LOG_LEVEL
 //	jwt.secret_key         → JWT_SECRET_KEY
 //	cb.max_requests        → CB_MAX_REQUESTS
-//	session.max_active     → SESSION_MAX_ACTIVE
 type Config struct {
 	App    AppConfig    `mapstructure:"app"`
 	HTTP   HTTPConfig   `mapstructure:"http"`
@@ -417,8 +416,6 @@ type BcryptConfig struct {
 
 // SessionConfig controls multi-device session behaviour.
 type SessionConfig struct {
-	// MaxActive is the maximum number of concurrent sessions per user (1–20).
-	MaxActive int `mapstructure:"max_active"`
 	// RevokeOnRoleChange when true forces session revocation after role assignment/revocation,
 	// ensuring JWT claims refresh immediately rather than waiting for access token expiry.
 	RevokeOnRoleChange bool `mapstructure:"revoke_on_role_change"`

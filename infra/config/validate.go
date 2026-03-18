@@ -538,18 +538,8 @@ func validateBcrypt(cfg BcryptConfig) []error {
 }
 
 // validateSession checks session management configuration.
-func validateSession(cfg SessionConfig) []error {
-	var errs []error
-
-	if cfg.MaxActive < 1 {
-		errs = append(errs, fmt.Errorf("session.max_active must be at least 1"))
-	}
-
-	if cfg.MaxActive > 20 {
-		errs = append(errs, fmt.Errorf("session.max_active must be at most 20"))
-	}
-
-	return errs
+func validateSession(_ SessionConfig) []error {
+	return nil
 }
 
 // validatePort returns an error if the given TCP port number is not in the

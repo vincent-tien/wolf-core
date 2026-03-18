@@ -72,4 +72,4 @@ bcrypt:
   cost: 12
 
 session:
-  max_active: 5
+  revoke_on_role_change: false
