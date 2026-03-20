@@ -132,7 +132,7 @@ The composition root (`infra/bootstrap`) wires dependencies in strict order:
 | 11 | Messaging stream (broker) | Config, Logger |
 | 12 | Outbox store + worker | Write DB, Stream |
 | 13 | HTTP server + middleware chain | All above |
-| 14 | gRPC server + interceptors | All above |
+| 14 | gRPC server + interceptors (skipped when `grpc.enabled: false`) | All above |
 | 15 | Readiness checker | DB, Cache, Broker |
 
 On error during init, all previously created resources are cleaned up in LIFO order via a `closers` stack.

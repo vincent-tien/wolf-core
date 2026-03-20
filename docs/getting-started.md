@@ -38,6 +38,7 @@ http:
   write_timeout: 30s
 
 grpc:
+  enabled: true             # set false to disable gRPC server entirely
   port: 9090
 
 db:

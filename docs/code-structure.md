@@ -284,7 +284,7 @@ Concrete implementations. Imports from domain and application layers.
 | `infra/seed` | Database seeding: factories, references, topological sort, truncation |
 | `infra/decorator` | Generic decorator chain (cache, logging, metrics) for repositories |
 | `infra/http` | HTTP server wrapper, metrics server, readiness checker |
-| `infra/grpc` | gRPC server wrapper with reflection |
+| `infra/grpc` | gRPC server wrapper with reflection; `NewNoop()` for disabled mode |
 | `infra/io` | Streaming I/O utilities |
 | `infra/profiling` | pprof/fgprof profiling setup |
 | `infra/runtime` | GOMAXPROCS tuning (automaxprocs) |
