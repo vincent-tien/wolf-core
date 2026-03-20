@@ -122,6 +122,8 @@ type CORSConfig struct {
 
 // GRPCConfig holds configuration for the gRPC server.
 type GRPCConfig struct {
+	// Enabled controls whether the gRPC server starts. Defaults to true when nil (backward compat).
+	Enabled *bool `mapstructure:"enabled"`
 	// Port is the TCP port the gRPC server listens on.
 	Port int `mapstructure:"port"`
 	// MaxRecvMsgSize is the maximum message size in bytes the server can receive.
@@ -132,6 +134,14 @@ type GRPCConfig struct {
 	KeepaliveTime time.Duration `mapstructure:"keepalive_time"`
 	// KeepaliveTimeout is the duration the server waits for a keepalive ping ack.
 	KeepaliveTimeout time.Duration `mapstructure:"keepalive_timeout"`
+}
+
+// IsEnabled returns true if gRPC is enabled. Defaults to true when Enabled is nil (backward compat).
+func (c GRPCConfig) IsEnabled() bool {
+	if c.Enabled == nil {
+		return true
+	}
+	return *c.Enabled
 }
 
 // ---------------------------------------------------------------------------

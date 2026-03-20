@@ -24,6 +24,14 @@ type Server struct {
 	listener net.Listener
 	port     int
 	logger   *zap.Logger
+	noop     bool
+}
+
+// NewNoop creates a disabled Server that accepts RegisterGRPC calls but never listens.
+// Used when grpc.enabled=false. Start/Stop are safe no-ops.
+func NewNoop() *Server {
+	srv := grpclib.NewServer()
+	return &Server{server: srv, logger: zap.NewNop(), noop: true}
 }
 
 // New creates a *Server configured from cfg with the given unary interceptors
@@ -67,6 +75,9 @@ func (s *Server) GRPCServer() *grpclib.Server {
 // in a separate goroutine. The listener is stored on the Server struct so that
 // Stop can close it if Serve fails to take ownership.
 func (s *Server) Start() error {
+	if s.noop {
+		return nil
+	}
 	addr := fmt.Sprintf(":%d", s.port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -85,6 +96,9 @@ func (s *Server) Start() error {
 // RPCs until ctx is done to complete, after which the server is force-stopped.
 // The stored listener is closed to ensure no file descriptor leak.
 func (s *Server) Stop(ctx context.Context) error {
+	if s.noop {
+		return nil
+	}
 	s.logger.Info("gRPC server stopping")
 
 	done := make(chan struct{})

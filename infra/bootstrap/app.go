@@ -275,12 +275,18 @@ func New(cfgPath string) (_ *App, retErr error) {
 		metricsServer = platformhttp.NewMetricsServer(cfg.Metrics.Port, logger)
 	}
 
-	// 13. gRPC server with interceptor chain
-	grpcServer := platformgrpc.New(
-		cfg.GRPC,
-		logger,
-		grpcmw.BuildInterceptors(logger, appMetrics)...,
-	)
+	// 13. gRPC server with interceptor chain (skipped when grpc.enabled=false)
+	var grpcServer *platformgrpc.Server
+	if cfg.GRPC.IsEnabled() {
+		grpcServer = platformgrpc.New(
+			cfg.GRPC,
+			logger,
+			grpcmw.BuildInterceptors(logger, appMetrics)...,
+		)
+	} else {
+		logger.Info("gRPC server disabled via config (grpc.enabled=false)")
+		grpcServer = platformgrpc.NewNoop()
+	}
 
 	// 13. DB pool metrics — export sql.DBStats as Prometheus gauges
 	_ = db.NewPoolMetrics(writeDB, readDB)
@@ -416,11 +422,11 @@ func (a *App) Run(ctx context.Context) error {
 		})
 	}
 
-	// Reflection registers 2 services automatically. If no modules added
-	// business services, log a warning so operators know the port is idle.
-	if svcCount := len(a.grpcServer.GRPCServer().GetServiceInfo()); svcCount <= 2 {
-		a.logger.Warn("gRPC server starting with no registered business services",
-			zap.Int("port", a.cfg.GRPC.Port))
+	if a.cfg.GRPC.IsEnabled() {
+		if svcCount := len(a.grpcServer.GRPCServer().GetServiceInfo()); svcCount <= 2 {
+			a.logger.Warn("gRPC server starting with no registered business services",
+				zap.Int("port", a.cfg.GRPC.Port))
+		}
 	}
 
 	g.Go(func() error {
